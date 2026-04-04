@@ -825,25 +825,47 @@ async function loadFidelite() {
 async function redeemCode() {
   const code = document.getElementById('code-input').value.trim().toUpperCase()
   setAlert('code-alert','')
-  if(!code || code.length<9) { setAlert('code-alert','Format invalide — ex: TIRA-AB2X'); return }
-  if(!currentUser||!currentProfile) return
+  if(!code || code.length < 9) { 
+    setAlert('code-alert','Format invalide — ex: TIRA-AB2X'); return 
+  }
+  if(!currentUser) { 
+    setAlert('code-alert','Veuillez vous connecter'); return 
+  }
+
+  // Recharger le profil si null
+  if(!currentProfile) {
+    await getProfile()
+  }
+  if(!currentProfile) {
+    setAlert('code-alert','Profil introuvable — réessayez'); return
+  }
+
   const btn = document.getElementById('code-btn')
   btn.disabled=true; btn.textContent='...'
-  const {data,error} = await sb.rpc('redeem_loyalty_code',{p_code:code,p_user_id:currentProfile.id})
-  if(error||!data) {
-    setAlert('code-alert','Erreur lors de la validation')
-  } else if(data.success) {
+
+  const {data, error} = await sb.rpc('redeem_loyalty_code', {
+    p_code: code, 
+    p_user_id: currentProfile.id
+  })
+
+  console.log('Redeem result:', data, error) // pour debug
+
+  if(error) {
+    setAlert('code-alert', 'Erreur: ' + error.message)
+  } else if(data && data.success) {
     document.getElementById('code-input').value=''
-    if((data.gifts_won||0)>0) {
-      setAlert('code-alert',`🎉 Félicitations ! ${data.gifts_won} tiramisu offert !`,'success')
+    if((data.gifts_won||0) > 0) {
+      setAlert('code-alert', '🎉 Félicitations ! ' + data.gifts_won + ' tiramisu offert !', 'success')
       toast('🎉 Tiramisu offert gagné !')
     } else {
-      setAlert('code-alert',`+${data.points_earned} pts ! Nouveau total : ${data.new_total} pts`,'success')
-      toast(`+${data.points_earned} points ajoutés !`)
+      setAlert('code-alert', '+' + data.points_earned + ' pts ! Nouveau total : ' + data.new_total + ' pts', 'success')
+      toast('+' + data.points_earned + ' points ajoutés !')
     }
     await loadFidelite()
+  } else if(data) {
+    setAlert('code-alert', data.message || 'Erreur inconnue')
   } else {
-    setAlert('code-alert', data.message||'Erreur')
+    setAlert('code-alert', 'Aucune réponse du serveur')
   }
   btn.disabled=false; btn.textContent='Utiliser mes points'
 }
